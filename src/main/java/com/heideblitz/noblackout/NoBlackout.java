@@ -4,6 +4,7 @@ import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.MenuItem;
 import java.awt.MouseInfo;
@@ -14,8 +15,6 @@ import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -51,6 +50,8 @@ public class NoBlackout {
 	private static final int CHECK_INTERVAL_SECONDS = 30;
 
 	private static final Color COLOR_RUNNING = new Color(0, 200, 0);
+	private final Image icon = ImageIO.read(NoBlackout.class.getResourceAsStream("/icon_16.png"));
+	private final Image icon_active = ImageIO.read(NoBlackout.class.getResourceAsStream("/active_16.png"));
 
 	private final Properties properties = new Properties();
 	private final File confFile = new File(System.getProperty("user.home"), ".noblackout");
@@ -88,7 +89,7 @@ public class NoBlackout {
 				System.exit(0);
 			}
 		});
-		trayIcon = new TrayIcon(ImageIO.read(getClass().getResourceAsStream("/icon_16.png")), null, popup);
+		trayIcon = new TrayIcon(icon, null, popup);
 		trayIcon.setImageAutoSize(true);
 		SystemTray.getSystemTray().add(trayIcon);
 
@@ -194,9 +195,11 @@ public class NoBlackout {
 		if (processPath == null) {
 			msg = "found no running process";
 			statusTextField.setForeground(Color.BLACK);
+			trayIcon.setImage(icon);
 		} else {
 			msg = "found running process: " + processPath;
 			statusTextField.setForeground(COLOR_RUNNING);
+			trayIcon.setImage(icon_active);
 			simulateActivity();
 		}
 
