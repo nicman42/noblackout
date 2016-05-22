@@ -5,10 +5,15 @@ import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.MenuItem;
 import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.PopupMenu;
 import java.awt.Robot;
+import java.awt.SystemTray;
+import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.BufferedReader;
@@ -22,6 +27,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 
+import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -41,20 +47,25 @@ public class NoBlackout {
 
 	private static final String PROPERTY_ROOT = "root";
 	private static final String PROPERTY_ROOT_DEFAULT = "C:\\Program Files (x86)\\Steam\\steamapps\\common";
-	
+
 	private static final int CHECK_INTERVAL_SECONDS = 30;
 
 	private static final Color COLOR_RUNNING = new Color(0, 200, 0);
 
-	private Robot robot = new Robot();;
+	private final Properties properties = new Properties();
+	private final File confFile = new File(System.getProperty("user.home"), ".noblackout");
+
+	private Robot robot = new Robot();
+	private JFrame wnd;
 	private JTextField rootTextField = new JTextField();
 	private JButton chooseBtn;
+	private TrayIcon trayIcon;
 	private Set<String> exePaths = new TreeSet<String>(new Comparator<String>() {
 		public int compare(String o1, String o2) {
 			return o1.compareToIgnoreCase(o2);
 		}
 	});
-	private DefaultListModel<String> exePathsListModel;
+	private DefaultListModel<String> exePathsListModel = new DefaultListModel<String>();
 	private JTextField statusTextField = new JTextField();
 
 	public static void main(String[] args) throws AWTException, InterruptedException, IOException {
@@ -62,10 +73,45 @@ public class NoBlackout {
 	}
 
 	public NoBlackout() throws AWTException, InterruptedException, IOException {
-		final Properties properties = new Properties();
-		final File confFile = new File(System.getProperty("user.home"), ".noblackout");
+		PopupMenu popup = new PopupMenu();
+		MenuItem mi;
+		
+		popup.add(mi = new MenuItem("Configuration"));
+		mi.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				config();
+			}
+		});
+		popup.add(mi = new MenuItem("Exit"));
+		mi.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				System.exit(0);
+			}
+		});
+		trayIcon = new TrayIcon(ImageIO.read(getClass().getResourceAsStream("/icon_16.png")), null, popup);
+		trayIcon.setImageAutoSize(true);
+		SystemTray.getSystemTray().add(trayIcon);
 
-		final JFrame wnd = new JFrame("NoBlackout");
+		initConfigWindow();
+
+		if (confFile.exists()) {
+			properties.load(new FileInputStream(confFile));
+		}
+		File file = new File(properties.getProperty(PROPERTY_ROOT, PROPERTY_ROOT_DEFAULT));
+		if (file.exists()) {
+			setRootDirectory(file);
+		} else {
+			config();
+		}
+
+		while (true) {
+			check();
+			Thread.sleep(1000 * CHECK_INTERVAL_SECONDS);
+		}
+	}
+
+	private void initConfigWindow() {
+		wnd = new JFrame("NoBlackout");
 		JPanel panel = new JPanel(new GridBagLayout());
 		wnd.setContentPane(panel);
 
@@ -129,55 +175,34 @@ public class NoBlackout {
 		gbc3.weightx = 1;
 		gbc3.weighty = 1;
 
-		JList<String> exePathsList = new JList<String>(exePathsListModel = new DefaultListModel<String>());
+		JList<String> exePathsList = new JList<String>(exePathsListModel);
 		exePathsList.setEnabled(false);
 		panel.add(new JScrollPane(exePathsList), gbc3);
 
-		gbc1.gridwidth = 2;
-		panel.add(new JButton(new AbstractAction("Exit") {
-			private static final long serialVersionUID = 1L;
-
-			public void actionPerformed(ActionEvent e) {
-				System.exit(0);
-			}
-		}), gbc1);
-		wnd.addWindowListener(new WindowAdapter() {
-			@Override
-			public void windowClosing(WindowEvent e) {
-				System.exit(0);
-			}
-		});
 
 		wnd.setSize(400, 300);
 		wnd.setLocationRelativeTo(null);
+	}
+
+	private void config() {
 		wnd.setVisible(true);
-
-		if (confFile.exists()) {
-			properties.load(new FileInputStream(confFile));
-		}
-		final String root = properties.getProperty(PROPERTY_ROOT, PROPERTY_ROOT_DEFAULT);
-		if (root != null && !root.trim().isEmpty()) {
-			setRootDirectory(new File(root));
-		}
-
-		while (true) {
-			check();
-			Thread.sleep(1000 * CHECK_INTERVAL_SECONDS);
-		}
 	}
 
 	private void check() throws IOException {
 		String processPath = findRunningProcess();
+		String msg;
 		if (processPath == null) {
-			log.info("found no running process");
-			statusTextField.setText("found no running process");
+			msg = "found no running process";
 			statusTextField.setForeground(Color.BLACK);
 		} else {
-			log.info("found running process: " + processPath);
-			statusTextField.setText("found running process: simulate activity");
+			msg = "found running process: " + processPath;
 			statusTextField.setForeground(COLOR_RUNNING);
 			simulateActivity();
 		}
+
+		log.info(msg);
+		trayIcon.setToolTip(msg);
+		statusTextField.setText(msg);
 	}
 
 	private void setRootDirectory(final File rootDirectory) throws IOException {
