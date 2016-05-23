@@ -188,24 +188,23 @@ public class NoBlackout {
 	}
 
 	private void check() throws IOException {
+		String msg;
 		Point p = MouseInfo.getPointerInfo().getLocation();
 		if (!lastPoint.equals(p)) {
-			log.debug("mouse has been moved => nothing to do");
+			msg = "mouse has been moved => nothing to do";
 			lastPoint = p;
-			return;
-		}
-		
-		String processPath = findRunningProcess();
-		String msg;
-		if (processPath == null) {
-			msg = "found no running process";
-			statusTextField.setForeground(Color.BLACK);
-			trayIcon.setImage(icon);
-		} else {
-			msg = "found running process: " + processPath;
-			statusTextField.setForeground(COLOR_RUNNING);
-			trayIcon.setImage(icon_active);
-			simulateActivity();
+		}else{
+			String processPath = findRunningProcess();
+			if (processPath == null) {
+				msg = "found no running process";
+				statusTextField.setForeground(Color.BLACK);
+				trayIcon.setImage(icon);
+			} else {
+				msg = "found running process: " + processPath;
+				statusTextField.setForeground(COLOR_RUNNING);
+				trayIcon.setImage(icon_active);
+				simulateActivity();
+			}
 		}
 
 		log.info(msg);
