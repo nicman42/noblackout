@@ -25,7 +25,6 @@ import java.util.Comparator;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
-
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.DefaultListModel;
@@ -37,7 +36,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +54,8 @@ public class NoBlackout {
 	private final Properties properties = new Properties();
 	private final File confFile = new File(System.getProperty("user.home"), ".noblackout");
 
-	private Robot robot = new Robot();
+    private Robot robot = new Robot();
+    private Point lastPoint = MouseInfo.getPointerInfo().getLocation();
 	private JFrame wnd;
 	private JTextField rootTextField = new JTextField();
 	private JButton chooseBtn;
@@ -126,7 +125,7 @@ public class NoBlackout {
 		gbc2.gridx = 1;
 		gbc2.fill = GridBagConstraints.HORIZONTAL;
 		gbc2.insets = gbc1.insets;
-		panel.add(rootTextField, gbc1);
+        panel.add(rootTextField, gbc1);
 
 		panel.add(chooseBtn = new JButton(new AbstractAction("Choose") {
 			private static final long serialVersionUID = 1L;
@@ -250,18 +249,20 @@ public class NoBlackout {
 		});
 	}
 
-	private void innitExePaths(File directory) {
-		for (File file : directory.listFiles()) {
-			if (file.isDirectory()) {
-				innitExePaths(file);
-			} else if (file.getName().endsWith(".exe")) {
-				try {
-					exePaths.add(file.getCanonicalPath());
-				} catch (IOException e) {
-					log.error(e.getMessage());
-				}
-			}
-		}
+    private void innitExePaths(File directory) {
+        if (directory.listFiles() != null) {
+            for (File file : directory.listFiles()) {
+                if (file.isDirectory()) {
+                    innitExePaths(file);
+                } else if (file.getName().endsWith(".exe")) {
+                    try {
+                        exePaths.add(file.getCanonicalPath());
+                    } catch (IOException e) {
+                        log.error(e.getMessage());
+                    }
+                }
+            }
+        }
 	}
 
 	private String findRunningProcess() throws IOException {
@@ -282,9 +283,12 @@ public class NoBlackout {
 	}
 
 	private void simulateActivity() {
-		log.info("simulate mouse movement");
-		Point p = MouseInfo.getPointerInfo().getLocation();
-		robot.mouseMove(p.x, p.y + 1);
-		robot.mouseMove(p.x, p.y);
+        Point p = MouseInfo.getPointerInfo().getLocation();
+        if (lastPoint.equals(p)) {
+            log.info("simulate mouse movement");
+            robot.mouseMove(p.x, p.y + 1);
+            robot.mouseMove(p.x, p.y);
+        }
+        lastPoint = p;
 	}
 }
