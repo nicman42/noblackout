@@ -125,7 +125,7 @@ public class NoBlackout {
 		gbc2.gridx = 1;
 		gbc2.fill = GridBagConstraints.HORIZONTAL;
 		gbc2.insets = gbc1.insets;
-		panel.add(rootTextField, gbc1);
+        panel.add(rootTextField, gbc1);
 
 		panel.add(chooseBtn = new JButton(new AbstractAction("Choose") {
 			private static final long serialVersionUID = 1L;
