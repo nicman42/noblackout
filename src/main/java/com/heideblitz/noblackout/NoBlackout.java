@@ -145,7 +145,7 @@ public class NoBlackout {
 						properties.store(new FileOutputStream(confFile), "");
 						setRootDirectory(rootFile);
 					} catch (IOException e) {
-						log.error(e.getMessage());
+						log.error(e.getMessage(), e);
 					}
 				}
 			}
@@ -161,7 +161,7 @@ public class NoBlackout {
 				try {
 					check();
 				} catch (IOException e) {
-					log.error(e.getMessage());
+					log.error(e.getMessage(), e);
 				}
 			}
 
@@ -231,7 +231,7 @@ public class NoBlackout {
 				try {
 					rootTextField.setText(rootDirectory.getCanonicalPath());
 				} catch (IOException e) {
-					log.error(e.getMessage());
+					log.error(e.getMessage(), e);
 					rootTextField.setText("");
 				}
 			}
@@ -263,7 +263,7 @@ public class NoBlackout {
 					try {
 						exePaths.add(file.getCanonicalPath());
 					} catch (IOException e) {
-						log.error(e.getMessage());
+						log.error(e.getMessage(), e);
 					}
 				}
 			}
