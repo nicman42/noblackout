@@ -49,7 +49,6 @@ public class NoBlackout {
 
 	private static final Color COLOR_RUNNING = new Color(0, 200, 0);
 	private final Image icon = ImageIO.read(NoBlackout.class.getResourceAsStream("/icon_16.png"));
-	private final Image icon_active = ImageIO.read(NoBlackout.class.getResourceAsStream("/active_16.png"));
 
 	private final Properties properties = new Properties();
 	private final File confFile = new File(System.getProperty("user.home"), ".noblackout");
@@ -198,11 +197,9 @@ public class NoBlackout {
 			if (processPath == null) {
 				msg = "found no running process";
 				statusTextField.setForeground(Color.BLACK);
-				trayIcon.setImage(icon);
 			} else {
 				msg = "found running process: " + processPath;
 				statusTextField.setForeground(COLOR_RUNNING);
-				trayIcon.setImage(icon_active);
 				simulateActivity();
 			}
 		}
