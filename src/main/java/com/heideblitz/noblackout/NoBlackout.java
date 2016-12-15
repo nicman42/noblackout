@@ -121,7 +121,6 @@ public class NoBlackout {
 		gbc1.gridx = 0;
 		gbc1.gridheight = 2;
 		gbc1.weightx = 1;
-		gbc1.weighty = 1;
 		gbc1.fill = GridBagConstraints.BOTH;
 		gbc1.insets = new Insets(3, 3, 3, 3);
 		GridBagConstraints gbc2 = new GridBagConstraints();
@@ -135,14 +134,12 @@ public class NoBlackout {
 		gbc3.insets = gbc1.insets;
 		
 		final JList<String> directoriesList = new JList<String>(directoriesListModel);
-		directoriesList.setEnabled(false);
 		panel.add(new JScrollPane(directoriesList), gbc1);
 
 		panel.add(addBtn = new JButton(new AbstractAction("Add") {
 			private static final long serialVersionUID = 1L;
 
 			public void actionPerformed(ActionEvent event) {
-				addBtn.setEnabled(false);
 				String root = properties.getProperty(PROPERTY_ROOT, PROPERTY_ROOT_DEFAULT);
 				JFileChooser fileChooser = new JFileChooser();
 				if (root != null && !root.trim().isEmpty()) {
@@ -153,6 +150,7 @@ public class NoBlackout {
 					try {
 						File rootFile = fileChooser.getSelectedFile();
 						addDirectory(rootFile);
+						saveConfig();
 					} catch (IOException e) {
 						log.error(e.getMessage(), e);
 					}
@@ -164,14 +162,30 @@ public class NoBlackout {
 			private static final long serialVersionUID = 1L;
 
 			public void actionPerformed(ActionEvent event) {
-				removeBtn.setEnabled(false);
-				for(Object directory : directoriesList.getSelectedValues()){
+				for(String directory : directoriesList.getSelectedValuesList()){
 					directoriesListModel.removeElement(directory);
+				}
+				try{
+					saveConfig();
+				} catch (IOException e) {
+					log.error(e.getMessage(), e);
 				}
 				initExePaths();
 			}
 		}), gbc3);
 
+		GridBagConstraints gbc4 = new GridBagConstraints();
+		gbc4.gridx = 0;
+		gbc4.gridwidth = 2;
+		gbc4.insets = gbc1.insets;
+		gbc4.fill = GridBagConstraints.BOTH;
+		gbc4.weightx = 1;
+		gbc4.weighty = 1;
+
+		JList<String> exePathsList = new JList<String>(exePathsListModel);
+		exePathsList.setEnabled(false);
+		panel.add(new JScrollPane(exePathsList), gbc4);
+		
 		panel.add(statusTextField, gbc2);
 		statusTextField.setEditable(false);
 
@@ -187,18 +201,6 @@ public class NoBlackout {
 			}
 
 		}), gbc3);
-
-		GridBagConstraints gbc4 = new GridBagConstraints();
-		gbc4.gridx = 0;
-		gbc4.gridwidth = 2;
-		gbc4.insets = gbc1.insets;
-		gbc4.fill = GridBagConstraints.BOTH;
-		gbc4.weightx = 1;
-		gbc4.weighty = 1;
-
-		JList<String> exePathsList = new JList<String>(exePathsListModel);
-		exePathsList.setEnabled(false);
-		panel.add(new JScrollPane(exePathsList), gbc4);
 
 		wnd.setSize(400, 300);
 		wnd.setLocationRelativeTo(null);
@@ -256,19 +258,12 @@ public class NoBlackout {
 			log.error(e.getMessage(), e);
 		}
 		
-		saveConfig();
-		
 		addExePaths(rootDirectory);
-
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				addBtn.setEnabled(true);
-			}
-		});
 	}
 	
 	private void initExePaths() {
 		exePaths.clear();
+		exePathsListModel.clear();
 		
 		for(int i = 0; i < directoriesListModel.size(); i++){
 			addExePaths(new File(directoriesListModel.getElementAt(i)));
