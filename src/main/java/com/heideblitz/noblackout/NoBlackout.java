@@ -18,6 +18,7 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -36,6 +37,8 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,8 +59,11 @@ public class NoBlackout {
 	private Robot robot = new Robot();
 	private Point lastPoint = MouseInfo.getPointerInfo().getLocation();
 	private JFrame wnd;
-	private JTextField rootTextField = new JTextField();
-	private JButton chooseBtn;
+	
+	private DefaultListModel<String> directoriesListModel = new DefaultListModel<String>();
+	
+	private JButton addBtn;
+	private JButton removeBtn;
 	private TrayIcon trayIcon;
 	private Set<String> exePaths = new TreeSet<String>(new Comparator<String>() {
 		public int compare(String o1, String o2) {
@@ -96,11 +102,8 @@ public class NoBlackout {
 		if (confFile.exists()) {
 			properties.load(new FileInputStream(confFile));
 		}
-		File file = new File(properties.getProperty(PROPERTY_ROOT, PROPERTY_ROOT_DEFAULT));
-		if (file.exists()) {
-			setRootDirectory(file);
-		} else {
-			config();
+		for(String directory : properties.getProperty(PROPERTY_ROOT, PROPERTY_ROOT_DEFAULT).split(File.pathSeparator)){
+			addDirectory(new File(directory));
 		}
 
 		while (true) {
@@ -114,23 +117,32 @@ public class NoBlackout {
 		JPanel panel = new JPanel(new GridBagLayout());
 		wnd.setContentPane(panel);
 
-		rootTextField.setEditable(false);
 		GridBagConstraints gbc1 = new GridBagConstraints();
 		gbc1.gridx = 0;
+		gbc1.gridheight = 2;
 		gbc1.weightx = 1;
-		gbc1.fill = GridBagConstraints.HORIZONTAL;
+		gbc1.weighty = 1;
+		gbc1.fill = GridBagConstraints.BOTH;
 		gbc1.insets = new Insets(3, 3, 3, 3);
 		GridBagConstraints gbc2 = new GridBagConstraints();
-		gbc2.gridx = 1;
+		gbc2.gridx = 0;
 		gbc2.fill = GridBagConstraints.HORIZONTAL;
 		gbc2.insets = gbc1.insets;
-		panel.add(rootTextField, gbc1);
+		GridBagConstraints gbc3 = new GridBagConstraints();
+		gbc3.gridx = 1;
+		gbc3.fill = GridBagConstraints.HORIZONTAL;
+		gbc3.anchor = GridBagConstraints.NORTH;
+		gbc3.insets = gbc1.insets;
+		
+		final JList<String> directoriesList = new JList<String>(directoriesListModel);
+		directoriesList.setEnabled(false);
+		panel.add(new JScrollPane(directoriesList), gbc1);
 
-		panel.add(chooseBtn = new JButton(new AbstractAction("Choose") {
+		panel.add(addBtn = new JButton(new AbstractAction("Add") {
 			private static final long serialVersionUID = 1L;
 
 			public void actionPerformed(ActionEvent event) {
-				chooseBtn.setEnabled(false);
+				addBtn.setEnabled(false);
 				String root = properties.getProperty(PROPERTY_ROOT, PROPERTY_ROOT_DEFAULT);
 				JFileChooser fileChooser = new JFileChooser();
 				if (root != null && !root.trim().isEmpty()) {
@@ -140,17 +152,27 @@ public class NoBlackout {
 				if (fileChooser.showOpenDialog(wnd) == JFileChooser.APPROVE_OPTION) {
 					try {
 						File rootFile = fileChooser.getSelectedFile();
-						properties.setProperty(PROPERTY_ROOT, rootFile.getCanonicalPath());
-						properties.store(new FileOutputStream(confFile), "");
-						setRootDirectory(rootFile);
+						addDirectory(rootFile);
 					} catch (IOException e) {
 						log.error(e.getMessage(), e);
 					}
 				}
 			}
-		}), gbc2);
+		}), gbc3);
+		
+		panel.add(removeBtn = new JButton(new AbstractAction("Remove") {
+			private static final long serialVersionUID = 1L;
 
-		panel.add(statusTextField, gbc1);
+			public void actionPerformed(ActionEvent event) {
+				removeBtn.setEnabled(false);
+				for(Object directory : directoriesList.getSelectedValues()){
+					directoriesListModel.removeElement(directory);
+				}
+				initExePaths();
+			}
+		}), gbc3);
+
+		panel.add(statusTextField, gbc2);
 		statusTextField.setEditable(false);
 
 		panel.add(new JButton(new AbstractAction("Check now") {
@@ -164,19 +186,19 @@ public class NoBlackout {
 				}
 			}
 
-		}), gbc2);
+		}), gbc3);
 
-		GridBagConstraints gbc3 = new GridBagConstraints();
-		gbc3.gridx = 0;
-		gbc3.gridwidth = 2;
-		gbc3.insets = gbc1.insets;
-		gbc3.fill = GridBagConstraints.BOTH;
-		gbc3.weightx = 1;
-		gbc3.weighty = 1;
+		GridBagConstraints gbc4 = new GridBagConstraints();
+		gbc4.gridx = 0;
+		gbc4.gridwidth = 2;
+		gbc4.insets = gbc1.insets;
+		gbc4.fill = GridBagConstraints.BOTH;
+		gbc4.weightx = 1;
+		gbc4.weighty = 1;
 
 		JList<String> exePathsList = new JList<String>(exePathsListModel);
 		exePathsList.setEnabled(false);
-		panel.add(new JScrollPane(exePathsList), gbc3);
+		panel.add(new JScrollPane(exePathsList), gbc4);
 
 		wnd.setSize(400, 300);
 		wnd.setLocationRelativeTo(null);
@@ -184,6 +206,20 @@ public class NoBlackout {
 
 	private void config() {
 		wnd.setVisible(true);
+	}
+	
+	private void saveConfig() throws FileNotFoundException, IOException{
+		StringBuilder directories = new StringBuilder();
+		for(int i=0; i<directoriesListModel.size(); i++){
+			if(directories.length() > 0){
+				directories.append(File.pathSeparator);
+			}
+			directories.append(directoriesListModel.getElementAt(i));
+		}
+		
+		
+		properties.setProperty(PROPERTY_ROOT, directories.toString());
+		properties.store(new FileOutputStream(confFile), "");
 	}
 
 	private void check() throws IOException {
@@ -209,62 +245,62 @@ public class NoBlackout {
 		statusTextField.setText(msg);
 	}
 
-	private void setRootDirectory(final File rootDirectory) throws IOException {
-		exePaths.clear();
-
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				exePathsListModel.clear();
-				rootTextField.setText("");
-			}
-		});
-
+	private void addDirectory(final File rootDirectory) throws IOException {
 		if (!rootDirectory.isDirectory()) {
 			return;
 		}
 
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				try {
-					rootTextField.setText(rootDirectory.getCanonicalPath());
-				} catch (IOException e) {
-					log.error(e.getMessage(), e);
-					rootTextField.setText("");
-				}
-			}
-		});
-
-		innitExePaths(rootDirectory);
-		for (final String path : exePaths) {
-			log.info(path);
-			SwingUtilities.invokeLater(new Runnable() {
-				public void run() {
-					exePathsListModel.addElement(path);
-				}
-			});
+		try {
+			directoriesListModel.addElement(rootDirectory.getCanonicalPath());
+		} catch (IOException e) {
+			log.error(e.getMessage(), e);
 		}
+		
+		saveConfig();
+		
+		addExePaths(rootDirectory);
 
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				chooseBtn.setEnabled(true);
+				addBtn.setEnabled(true);
 			}
 		});
 	}
+	
+	private void initExePaths() {
+		exePaths.clear();
+		
+		for(int i = 0; i < directoriesListModel.size(); i++){
+			addExePaths(new File(directoriesListModel.getElementAt(i)));
+		}
+	}
 
-	private void innitExePaths(File directory) {
-		if (directory.listFiles() != null) {
-			for (File file : directory.listFiles()) {
+	private void addExePaths(File rootDirectory) {
+		if (rootDirectory.listFiles() != null) {
+			for (File file : rootDirectory.listFiles()) {
 				if (file.isDirectory()) {
-					innitExePaths(file);
+					addExePaths(file);
 				} else if (file.getName().endsWith(".exe")) {
 					try {
-						exePaths.add(file.getCanonicalPath());
+						final String path = file.getCanonicalPath();
+						log.info(path);
+						
+						exePaths.add(path);
 					} catch (IOException e) {
 						log.error(e.getMessage(), e);
 					}
 				}
 			}
 		}
+
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				exePathsListModel.clear();
+				for(String path : exePaths){
+					exePathsListModel.addElement(path);
+				}
+			}
+		});
 	}
 
 	private String findRunningProcess() throws IOException {
