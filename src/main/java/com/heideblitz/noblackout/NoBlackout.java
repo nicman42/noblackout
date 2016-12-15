@@ -107,7 +107,7 @@ public class NoBlackout {
 		}
 
 		while (true) {
-			check();
+			check(false);
 			Thread.sleep(1000 * CHECK_INTERVAL_SECONDS);
 		}
 	}
@@ -189,12 +189,12 @@ public class NoBlackout {
 		panel.add(statusTextField, gbc2);
 		statusTextField.setEditable(false);
 
-		panel.add(new JButton(new AbstractAction("Check now") {
+		panel.add(new JButton(new AbstractAction("Force check") {
 			private static final long serialVersionUID = 1L;
 
 			public void actionPerformed(ActionEvent event) {
 				try {
-					check();
+					check(true);
 				} catch (IOException e) {
 					log.error(e.getMessage(), e);
 				}
@@ -224,11 +224,12 @@ public class NoBlackout {
 		properties.store(new FileOutputStream(confFile), "");
 	}
 
-	private void check() throws IOException {
+	private void check(boolean force) throws IOException {
 		String msg;
 		Point p = MouseInfo.getPointerInfo().getLocation();
-		if (!lastPoint.equals(p)) {
+		if (!force && !lastPoint.equals(p)) {
 			msg = "mouse has been moved => nothing to do";
+			statusTextField.setForeground(Color.BLACK);
 			lastPoint = p;
 		}else{
 			String processPath = findRunningProcess();
